@@ -121,7 +121,7 @@ public class Holiday {
 
     @Override
     public String toString() {
-        return "Holyday{" +
+        return "Holiday{" +
                 "id=" + id +
                 "title='" + title + '\'' +
                 ", country='" + country + '\'' +

@@ -10,13 +10,12 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class HolidayHandler implements HttpHandler {
-    private List<Holiday> holidays; // Pakeista į private kintamąjį
+    private final List<Holiday> holidays;
     private final Gson gson;
 
     public HolidayHandler(List<Holiday> holidays) {
@@ -41,19 +40,15 @@ public class HolidayHandler implements HttpHandler {
             case "POST" -> {
                 switch (uri.getPath()) {
                     case "/createHoliday" -> handleCreateHoliday(exchange);
-//                    case "/updateHoliday" -> handleUpdateHoliday(exchange);
-//                    case "/deleteHoliday" -> handleDeleteHoliday(exchange);
-//                    case "/rateHoliday" -> handleRateHoliday(exchange);
-//                    case "/resetRatings" -> handleResetHolidayRatings(exchange);
+                    case "/updateHoliday" -> handleUpdateHoliday(exchange);
+                    case "/deleteHoliday" -> handleDeleteHoliday(exchange);
+                    case "/rateHoliday" -> handleRateHoliday(exchange);
+                    case "/resetRatings" -> handleResetHolidayRatings(exchange);
                     default -> exchange.sendResponseHeaders(404, -1);
                 }
             }
             case "GET" -> {
                 switch (uri.getPath()) {
-                    case "/resetRatings" -> handleResetHolidayRatings(exchange);
-                    case "/rateHoliday" -> handleRateHoliday(exchange);
-                    case "/deleteHoliday" -> handleDeleteHoliday(exchange);
-                    case "/updateHoliday" -> handleUpdateHoliday(exchange);
                     case "/getHolidays" -> handleGetHolidays(exchange);
                     case "/getHoliday" -> handleGetHoliday(exchange);
                     default -> exchange.sendResponseHeaders(404, -1);
@@ -78,6 +73,8 @@ public class HolidayHandler implements HttpHandler {
      *
      * @param exchange the HttpExchange object containing the request and response
      * @throws IOException if an I/O error occurs
+     * @example
+     *     curl -X POST '<a href="http://localhost:8000/rateHoliday?id=1&rating=4">Rate Holiday ID:1 to 4 stars</a>'
      */
     private void handleRateHoliday(HttpExchange exchange) throws IOException {
         Map<String, String> params = queryToMap(exchange.getRequestURI().getQuery());
@@ -133,25 +130,54 @@ public class HolidayHandler implements HttpHandler {
      *
      * @param exchange the HTTP exchange object, which represents the request and response
      * @throws IOException if an I/O error occurs while processing the request
+     * @example
+     *     curl -X POST '<a href="http://localhost:8000/resetRatings?id=1">Reset Holiday ID:1 ratings</a>'
      */
     private void handleResetHolidayRatings(HttpExchange exchange) throws IOException {
         String query = exchange.getRequestURI().getQuery();
         Map<String, String> params = queryToMap(query);
-        long id = Long.parseLong(params.get("id"));
-        Holiday holiday = holidays.stream().filter(h -> h.getId() == id).findFirst().orElse(null);
+        long id;
+
+        try {
+            id = Long.parseLong(params.get("id"));
+        } catch (NumberFormatException e) {
+            exchange.sendResponseHeaders(400, -1); // Netinkamas ID formatas
+            return;
+        }
+
+        // Rasti atostogas pagal nurodytą ID
+        Holiday holiday = holidays.stream()
+                .filter(h -> h.getId() == id)
+                .findFirst()
+                .orElse(null);
+
         if (holiday != null) {
+            // Nunulinti reitingus ir vidutinį reitingą
             holiday.setRating(new int[0]);
+            holiday.setAverageRating(0.0);
             saveHolidays();
+
+            // Siųsti sėkmingą atsakymą su pranešimu
             String response = "Holiday rating has been reset";
             exchange.sendResponseHeaders(200, response.getBytes().length);
             OutputStream os = exchange.getResponseBody();
             os.write(response.getBytes());
             os.close();
         } else {
+            // Siųsti klaidos atsakymą, jei atostogos su nurodytu ID nerastos
             exchange.sendResponseHeaders(404, -1);
         }
     }
 
+    /**
+     * Handles a request to retrieve a specific holiday.
+     * This method is called when a client sends a request to retrieve a holiday with a specific ID.
+     *
+     * @param exchange the HTTP exchange object, which represents the request and response
+     * @throws IOException if an I/O error occurs while processing the request
+     * @example
+     *     curl -X GET '<a href="http://localhost:8000/getHoliday?id=1">Get Holiday ID:1 link</a>'
+     */
     private void handleGetHoliday(HttpExchange exchange) throws IOException {
         String query = exchange.getRequestURI().getQuery();
         Map<String, String> params = queryToMap(query);
@@ -172,7 +198,15 @@ public class HolidayHandler implements HttpHandler {
         }
     }
 
-
+    /**
+     * Handles a request to retrieve all holidays.
+     * This method is called when a client sends a request to retrieve all holidays.
+     *
+     * @param exchange the HTTP exchange object, which represents the request and response
+     * @throws IOException if an I/O error occurs while processing the request
+     * @example
+     *     curl -X GET '<a href="http://localhost:8000/getHolidays">Get Holidays link</a>'
+     */
     private void handleGetHolidays(HttpExchange exchange) throws IOException {
         String response = gson.toJson(holidays);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
@@ -182,8 +216,15 @@ public class HolidayHandler implements HttpHandler {
         os.close();
     }
 
-
-
+    /**
+     * Handles a request to delete a specific holiday.
+     * This method is called when a client sends a request to delete a holiday with a specific ID.
+     *
+     * @param exchange the HTTP exchange object, which represents the request and response
+     * @throws IOException if an I/O error occurs while processing the request
+     * @example
+     *     curl -X POST '<a href="http://localhost:8000/deleteHoliday?id=1">Delete Holiday ID:1</a>'
+     */
     private void handleDeleteHoliday(HttpExchange exchange) throws IOException {
         String query = exchange.getRequestURI().getQuery();
         Map<String, String> params = queryToMap(query);
@@ -202,6 +243,15 @@ public class HolidayHandler implements HttpHandler {
         }
     }
 
+    /**
+     * Handles a request to update a specific holiday.
+     * This method is called when a client sends a request to update a holiday with a specific ID.
+     *
+     * @param exchange the HTTP exchange object, which represents the request and response
+     * @throws IOException if an I/O error occurs while processing the request
+     * @example
+     *     curl -X POST '<a href="http://localhost:8000/updateHoliday?id=1&title=New+Title&country=New+Country&">Update Holiday ID:1</a>...'
+     */
     private void handleUpdateHoliday(HttpExchange exchange) throws IOException {
         String query = exchange.getRequestURI().getQuery();
         Map<String, String> params = queryToMap(query);
@@ -250,6 +300,15 @@ public class HolidayHandler implements HttpHandler {
         }
     }
 
+    /**
+     * Handles a request to create a new holiday.
+     * This method is called when a client sends a request to create a new holiday.
+     *
+     * @param exchange the HTTP exchange object, which represents the request and response
+     * @throws IOException if an I/O error occurs while processing the request
+     * @example
+     *     curl -X POST '<a href="http://localhost:8000/createHoliday?title=New+Title&country=New+Country&">Create New Holiday</a>...'
+     */
     private void handleCreateHoliday(HttpExchange exchange) throws IOException {
         String query = exchange.getRequestURI().getQuery();
         Map<String, String> params = queryToMap(query);
@@ -265,14 +324,26 @@ public class HolidayHandler implements HttpHandler {
         int[] rating = new int[0];
 
         Holiday holiday = new Holiday(title, country, city, duration, season, description, price, photos, rating);
+        long newId = generateNextId();
+        holiday.setId(newId);
+
         holidays.add(holiday);
         saveHolidays();
-        String response = "User has been created successfully";
+        String response = "Holiday has been created successfully with ID: " + newId;
         exchange.sendResponseHeaders(200, response.getBytes().length);
         OutputStream os = exchange.getResponseBody();
         os.write(response.getBytes());
         os.close();
     }
 
-}
+    private long generateNextId() {
+        long maxId = 0;
+        for (Holiday holiday : holidays) {
+            if (holiday.getId() > maxId) {
+                maxId = holiday.getId();
+            }
+        }
+        return maxId + 1;
+    }
 
+}

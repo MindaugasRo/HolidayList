@@ -10,15 +10,18 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class Main {
-    public static Gson gson = new Gson();
-    private static List<Holiday> holidays = new ArrayList<>();
-    private static AtomicLong idCounter = new AtomicLong(0);
 
-    public static void main(String[] args) throws IOException, IOException {
-        holidays = loadHolidays();
+    /**
+     * This method sets up an HTTP server and maps various endpoints to the HolidayHandler class.
+     *
+     * @param args command-line arguments (not used)
+     * @throws IOException if an I/O error occurs while setting up the server
+     */
+    public static void main(String[] args) throws IOException {
+        //    public static Gson gson = new Gson();
+        List<Holiday> holidays = loadHolidays();
         HolidayHandler holidayHandler = new HolidayHandler(holidays);
 
         HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
@@ -35,10 +38,13 @@ public class Main {
 
 
     /**
-     * @loadHolidays Loads holidays from a JSON file and returns them as an ArrayList.
-     * @FileWriter if file not exist, create new file with empty Array
-     * @FileReader reade JSON file, and return data to ArrayList
+     Loads a list of holidays from a JSON file named "holidays.json".
+     * If the file does not exist, it will be created with an empty list.
+     *
      * @return an ArrayList of Holiday objects
+     * Example:
+     * List<Holiday> holidays = loadHolidays();
+     * // holidays will be an empty list if the file is new, or a list of holidays if the file already exists
      */
     public static List<Holiday> loadHolidays() {
         File file = new File("holidays.json");
@@ -60,7 +66,4 @@ public class Main {
         }
     }
 
-    public static long getNextId() {
-        return idCounter.incrementAndGet();
-    }
 }
